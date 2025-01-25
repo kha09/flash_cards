@@ -53,6 +53,30 @@ curl -X POST http://localhost:3000/flashcards
 }
 ```
 
+### 3. Generate Summary
+**POST** `/summarize`
+
+Generate a bullet-point summary of the uploaded PDF content.
+
+**Request:**
+```bash
+curl -X POST http://localhost:3000/summarize
+```
+
+**Response:**
+```json
+{
+  "summary": [
+    "Main topic of the document",
+    "Key point 1",
+    "Key point 2",
+    "Important conclusion"
+  ],
+  "count": 4,
+  "timestamp": "2025-01-25T19:30:00.000Z"
+}
+```
+
 ## Example Usage
 
 1. Start the server:

@@ -164,6 +164,71 @@ app.post('/flashcards', async (req, res) => {
   }
 });
 
+app.post('/summarize', async (req, res) => {
+  try {
+    if (!vectorStore) {
+      return res.status(400).json({ error: 'No PDF uploaded yet' });
+    }
+
+    const model = new ChatOpenAI({
+      openAIApiKey: process.env.OPENAI_API_KEY,
+      modelName: 'gpt-3.5-turbo',
+      temperature: 0.7
+    });
+
+    // Generate summary from the PDF content
+    const prompt = `Generate a concise bullet-point summary of the document content. 
+    Each point should:
+    1. Capture a key idea or fact from the document
+    2. Be brief and to the point
+    3. Be based strictly on the document content
+    
+    Return ONLY a valid JSON array of strings, where each string is a summary point.
+    Do not include any additional text or explanations.`;
+
+    const chain = RetrievalQAChain.fromLLM(model, vectorStore.asRetriever());
+    
+    const response = await chain.call({
+      query: prompt
+    });
+
+    console.log('Raw summary response:', response.text);
+
+    // Parse and validate the response
+    let summaryPoints;
+    try {
+      // Clean response text by removing any non-JSON content
+      const jsonStart = response.text.indexOf('[');
+      const jsonEnd = response.text.lastIndexOf(']') + 1;
+      const jsonString = response.text.slice(jsonStart, jsonEnd);
+      
+      summaryPoints = JSON.parse(jsonString);
+      
+      if (!Array.isArray(summaryPoints)) {
+        throw new Error('Invalid summary format');
+      }
+      
+      // Validate each point
+      summaryPoints.forEach((point, index) => {
+        if (typeof point !== 'string') {
+          throw new Error(`Summary point ${index} is not a string`);
+        }
+      });
+    } catch (error) {
+      console.error('Summary parsing error:', error);
+      throw new Error('Failed to generate valid summary: ' + error.message);
+    }
+
+    res.json({
+      summary: summaryPoints,
+      count: summaryPoints.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });
