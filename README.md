@@ -25,25 +25,30 @@ curl -X POST http://localhost:3000/upload \
 }
 ```
 
-### 2. Chat with PDF
-**POST** `/chat`
+### 2. Generate Flashcards
+**POST** `/flashcards`
 
-Ask questions about the uploaded PDF content.
+Generate Q&A flashcards from the uploaded PDF content.
 
 **Request:**
 ```bash
-curl -X POST http://localhost:3000/chat \
-  -H "Content-Type: application/json" \
-  -d '{
-    "question": "What is the main topic of this document?"
-  }'
+curl -X POST http://localhost:3000/flashcards
 ```
 
 **Response:**
 ```json
 {
-  "response": "The main topic is...",
-  "context": "Based on the uploaded PDF content",
+  "flashcards": [
+    {
+      "question": "What is the main topic?",
+      "answer": "The main topic is..."
+    },
+    {
+      "question": "What are the key points?",
+      "answer": "The key points are..."
+    }
+  ],
+  "count": 5,
   "timestamp": "2025-01-25T19:30:00.000Z"
 }
 ```

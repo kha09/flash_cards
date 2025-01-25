@@ -94,10 +94,8 @@ app.post('/upload', upload.single('pdf'), async (req, res) => {
   }
 });
 
-app.post('/chat', async (req, res) => {
+app.post('/flashcards', async (req, res) => {
   try {
-    const { question } = req.body;
-    
     if (!vectorStore) {
       return res.status(400).json({ error: 'No PDF uploaded yet' });
     }
@@ -108,15 +106,57 @@ app.post('/chat', async (req, res) => {
       temperature: 0.7
     });
 
+    // Generate flashcards from the PDF content
+    const prompt = `Generate 5-10 high-quality flashcards from the document content. 
+    Each flashcard must have:
+    1. A clear question that tests understanding of a key concept
+    2. A concise answer that directly addresses the question
+    3. The question and answer must be based strictly on the document content
+    
+    Return ONLY a valid JSON array where each element is an object with exactly:
+    {
+      "question": "the question text",
+      "answer": "the answer text"
+    }
+    
+    Do not include any additional text or explanations.`;
+
     const chain = RetrievalQAChain.fromLLM(model, vectorStore.asRetriever());
     
     const response = await chain.call({
-      query: question
+      query: prompt
     });
 
+    console.log('Raw response:', response.text);
+
+    // Parse and validate the response
+    let flashcards;
+    try {
+      // Clean response text by removing any non-JSON content
+      const jsonStart = response.text.indexOf('[');
+      const jsonEnd = response.text.lastIndexOf(']') + 1;
+      const jsonString = response.text.slice(jsonStart, jsonEnd);
+      
+      flashcards = JSON.parse(jsonString);
+      
+      if (!Array.isArray(flashcards)) {
+        throw new Error('Invalid flashcard format');
+      }
+      
+      // Validate each flashcard
+      flashcards.forEach((card, index) => {
+        if (!card.question || !card.answer) {
+          throw new Error(`Flashcard ${index} missing question or answer`);
+        }
+      });
+    } catch (error) {
+      console.error('Flashcard parsing error:', error);
+      throw new Error('Failed to generate valid flashcards: ' + error.message);
+    }
+
     res.json({
-      response: response.text,
-      context: "Based on the uploaded PDF content",
+      flashcards: flashcards,
+      count: flashcards.length,
       timestamp: new Date().toISOString()
     });
   } catch (error) {
