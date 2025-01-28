@@ -229,6 +229,90 @@ app.post('/summarize', async (req, res) => {
   }
 });
 
+app.post('/mcq', async (req, res) => {
+  try {
+    if (!vectorStore) {
+      return res.status(400).json({ error: 'No PDF uploaded yet' });
+    }
+
+    const model = new ChatOpenAI({
+      openAIApiKey: process.env.OPENAI_API_KEY,
+      modelName: 'gpt-3.5-turbo',
+      temperature: 0.7
+    });
+
+    // Generate MCQs from the PDF content
+    const prompt = `Generate 5 multiple choice questions from the document content.
+    Each MCQ should:
+    1. Have a clear question testing understanding of a key concept
+    2. Have exactly 4 options (A, B, C, D)
+    3. Have only one correct answer
+    4. Be based strictly on the document content
+    
+    Return ONLY a valid JSON array where each element is an object with exactly:
+    {
+      "question": "the question text",
+      "options": {
+        "A": "first option",
+        "B": "second option",
+        "C": "third option",
+        "D": "fourth option"
+      },
+      "correct_answer": "A/B/C/D"
+    }
+    
+    Do not include any additional text or explanations.`;
+
+    const chain = RetrievalQAChain.fromLLM(model, vectorStore.asRetriever());
+    
+    const response = await chain.call({
+      query: prompt
+    });
+
+    console.log('Raw MCQ response:', response.text);
+
+    // Parse and validate the response
+    let mcqs;
+    try {
+      // Clean response text by removing any non-JSON content
+      const jsonStart = response.text.indexOf('[');
+      const jsonEnd = response.text.lastIndexOf(']') + 1;
+      const jsonString = response.text.slice(jsonStart, jsonEnd);
+      
+      mcqs = JSON.parse(jsonString);
+      
+      if (!Array.isArray(mcqs)) {
+        throw new Error('Invalid MCQ format');
+      }
+      
+      // Validate each MCQ
+      mcqs.forEach((mcq, index) => {
+        if (!mcq.question || !mcq.options || !mcq.correct_answer) {
+          throw new Error(`MCQ ${index} missing required fields`);
+        }
+        if (!['A', 'B', 'C', 'D'].includes(mcq.correct_answer)) {
+          throw new Error(`MCQ ${index} has invalid correct answer`);
+        }
+        const optionKeys = Object.keys(mcq.options);
+        if (optionKeys.length !== 4 || !optionKeys.every(key => ['A', 'B', 'C', 'D'].includes(key))) {
+          throw new Error(`MCQ ${index} has invalid options`);
+        }
+      });
+    } catch (error) {
+      console.error('MCQ parsing error:', error);
+      throw new Error('Failed to generate valid MCQs: ' + error.message);
+    }
+
+    res.json({
+      mcqs: mcqs,
+      count: mcqs.length,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.listen(port, () => {
   console.log(`Server running on port ${port}`);
 });

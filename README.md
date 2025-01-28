@@ -77,6 +77,36 @@ curl -X POST http://localhost:3000/summarize
 }
 ```
 
+### 4. Generate Multiple Choice Questions
+**POST** `/mcq`
+
+Generate multiple choice questions from the uploaded PDF content.
+
+**Request:**
+```bash
+curl -X POST http://localhost:3000/mcq
+```
+
+**Response:**
+```json
+{
+  "mcqs": [
+    {
+      "question": "What is the main concept discussed in the document?",
+      "options": {
+        "A": "First possible answer",
+        "B": "Second possible answer",
+        "C": "Third possible answer",
+        "D": "Fourth possible answer"
+      },
+      "correct_answer": "B"
+    }
+  ],
+  "count": 5,
+  "timestamp": "2025-01-25T19:30:00.000Z"
+}
+```
+
 ## Example Usage
 
 1. Start the server:
